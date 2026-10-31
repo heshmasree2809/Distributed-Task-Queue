@@ -1,149 +1,228 @@
 # Distributed Task Queue
 
-A production-style backend infrastructure project that implements a Redis-backed distributed background job queue with FastAPI, worker processes, retries, priority queues, delayed execution, dead-letter handling, status tracking, and live WebSocket monitoring.
+A distributed background job processing system I developed using **Python, FastAPI, Redis, and Docker** to explore reliable asynchronous processing, worker coordination, priority scheduling, retry mechanisms, and real-time job monitoring.
 
-This repository is designed as a professional engineering portfolio project. It is intentionally scoped like a simplified Celery/RQ system: small enough to understand in an interview, but complete enough to demonstrate real backend design decisions.
+I designed this project as a simplified version of production task-processing systems such as Celery and RQ, focusing on practical backend engineering concepts, fault handling, observability, and maintainable architecture.
 
-## Why This Project Matters
+## Project Overview
 
-Most production systems eventually need background processing for slow, unreliable, or asynchronous work: emails, webhooks, report generation, imports, model inference, billing events, and cleanup jobs. A task queue sits at the center of those workflows and has to handle ordering, failures, retries, observability, and operational safety.
+Many applications rely on background processing for tasks such as sending emails, generating reports, processing data imports, executing webhooks, and running machine learning inference. These operations should not block incoming API requests and need reliable mechanisms for scheduling, execution, retries, and failure management.
 
-This project shows those concerns in a clean Python implementation with Redis as the queueing and state backend.
+I built this project to demonstrate how a Redis-backed task queue can coordinate API requests and independent worker processes while tracking each job throughout its lifecycle.
 
-## Architecture Overview
+## Architecture
 
 ```text
-Client
-  |
-  | REST / WebSocket
-  v
-FastAPI API  -----> Redis
-  |                 |-- priority lists: high, medium, low
-  |                 |-- delayed sorted set
-  |                 |-- job state records
-  |                 |-- event stream/pubsub
-  v
-Dashboard
-
-Worker processes
-  |
-  | poll Redis priority queues
-  v
-Task executor -> success, retry with backoff, or dead-letter
+                    Client
+                       |
+                 REST API / WebSocket
+                       |
+                       v
+                 FastAPI Server
+                       |
+                       v
+                     Redis
+              ┌────────┼─────────┐
+              │        │         │
+         Priority   Delayed   Job State
+          Queues     Jobs      Records
+              │        │         │
+              └────────┼─────────┘
+                       |
+                       v
+                 Worker Processes
+                       |
+                       v
+                  Task Executor
+                       |
+              ┌────────┼─────────┐
+              │        │         │
+           Success    Retry   Dead Letter
+                       |
+                       v
+                Live Job Updates
+                       |
+                       v
+                WebSocket Dashboard
 ```
 
-The API accepts job submissions and stores durable job metadata in Redis. Workers run separately with `python -m app.worker`, consume high-priority jobs before medium and low, update status through the job lifecycle, and publish events used by WebSocket clients and the dashboard.
+The FastAPI application accepts job submissions and stores job information in Redis. Independent worker processes retrieve jobs according to their priority, execute tasks, update job states, and handle failures. WebSocket connections provide live updates to the monitoring dashboard.
 
-## Features
+## Key Features
 
-- REST API for job submission, job lookup, recent jobs, queue stats, and health checks.
-- Redis-backed priority queues: `high`, `medium`, and `low`.
-- Delayed execution using a Redis sorted set.
-- Worker process with configurable concurrency.
-- Retry handling with exponential backoff.
-- Dead-letter queue for permanently failed jobs.
-- Job lifecycle states: `queued`, `delayed`, `running`, `succeeded`, `failed`, `retrying`, `dead`.
-- Rich job metadata including timestamps, attempts, payload, priority, and error messages.
-- WebSocket endpoint for live job updates.
-- Browser dashboard at `/dashboard`.
-- Structured JSON logging with `structlog`.
-- Docker and Docker Compose setup.
-- Pytest suite using isolated fake Redis.
-- GitHub Actions CI for linting and tests.
+* **REST API:** Developed endpoints for submitting jobs, retrieving job details, listing recent jobs, monitoring queue statistics, and checking application health.
+* **Priority Scheduling:** Implemented high-, medium-, and low-priority queues to control job processing order.
+* **Delayed Execution:** Used a Redis sorted set to schedule jobs for execution after a specified delay.
+* **Independent Workers:** Implemented separate worker processes with configurable concurrency for background job execution.
+* **Automatic Retries:** Added retry handling with exponential backoff to manage temporary task failures.
+* **Dead-Letter Handling:** Implemented a dead-letter queue for jobs that exhaust their retry attempts.
+* **Job Lifecycle Tracking:** Added states including `queued`, `delayed`, `running`, `succeeded`, `failed`, `retrying`, and `dead`.
+* **Real-Time Monitoring:** Integrated WebSockets and Redis Pub/Sub to publish job status changes.
+* **Monitoring Dashboard:** Built a browser-based dashboard to display queue statistics, job states, and recent events.
+* **Structured Logging:** Integrated `structlog` for structured application logs.
+* **Automated Testing:** Added a Pytest suite using Fakeredis to test API endpoints, queue operations, worker behavior, priority handling, and retries.
+* **Containerization:** Configured Docker and Docker Compose to run the application components.
+* **Continuous Integration:** Configured GitHub Actions to run linting and automated tests.
 
-## Tech Stack
+## Technology Stack
 
-- Python 3.11+
-- FastAPI
-- Redis
-- WebSockets
-- Docker / Docker Compose
-- Pydantic v2
-- Pytest
-- Fakeredis
-- Ruff
-- Structlog
+| Category                | Technologies              |
+| ----------------------- | ------------------------- |
+| Programming Language    | Python 3.11+              |
+| Backend Framework       | FastAPI                   |
+| Queue and State Storage | Redis                     |
+| API Validation          | Pydantic                  |
+| Real-Time Communication | WebSockets, Redis Pub/Sub |
+| Testing                 | Pytest, Fakeredis         |
+| Code Quality            | Ruff                      |
+| Logging                 | Structlog                 |
+| Containerization        | Docker, Docker Compose    |
+| CI/CD                   | GitHub Actions            |
 
-## Folder Structure
+## Project Structure
 
 ```text
 distributed-task-queue/
-  app/
-    __init__.py
-    main.py
-    config.py
-    models.py
-    redis_client.py
-    queue.py
-    worker.py
-    events.py
-    dashboard.py
-    logging_config.py
-  tests/
-    conftest.py
-    test_api.py
-    test_queue.py
-    test_worker.py
-    test_retries.py
-    test_priority.py
-  .github/
-    workflows/
-      ci.yml
-  Dockerfile
-  docker-compose.yml
-  pyproject.toml
-  README.md
-  .env.example
-  .gitignore
+├── app/
+│   ├── __init__.py
+│   ├── main.py
+│   ├── config.py
+│   ├── models.py
+│   ├── redis_client.py
+│   ├── queue.py
+│   ├── worker.py
+│   ├── events.py
+│   ├── dashboard.py
+│   └── logging_config.py
+├── tests/
+│   ├── conftest.py
+│   ├── test_api.py
+│   ├── test_queue.py
+│   ├── test_worker.py
+│   ├── test_retries.py
+│   └── test_priority.py
+├── .github/
+│   └── workflows/
+│       └── ci.yml
+├── Dockerfile
+├── docker-compose.yml
+├── pyproject.toml
+├── README.md
+├── .env.example
+└── .gitignore
 ```
 
-## Setup
+## Getting Started
 
-Create a virtual environment and install the project:
+### Prerequisites
+
+Install the following tools before running the project:
+
+* Python 3.11 or later
+* Docker Desktop
+* Git
+
+### 1. Clone the Repository
 
 ```bash
-python -m venv .venv
+git clone https://github.com/heshmasree2809/Distributed-Task-Queue.git
+cd Distributed-Task-Queue
+```
+
+### 2. Create a Virtual Environment
+
+**Windows:**
+
+```powershell
+py -m venv .venv
+.venv\Scripts\activate
+```
+
+**Linux/macOS:**
+
+```bash
+python3 -m venv .venv
 source .venv/bin/activate
+```
+
+### 3. Install Dependencies
+
+```bash
 pip install -e ".[dev]"
+```
+
+### 4. Configure Environment Variables
+
+Copy `.env.example` to `.env` and adjust the values if necessary.
+
+**Windows:**
+
+```powershell
+Copy-Item .env.example .env
+```
+
+**Linux/macOS:**
+
+```bash
 cp .env.example .env
 ```
 
-Start Redis locally:
+### 5. Start Redis
+
+Using Docker:
 
 ```bash
 docker run --rm -p 6379:6379 redis:7-alpine
 ```
 
-Run the API:
+Keep this terminal running.
+
+### 6. Start the API Server
+
+Open another terminal, activate the virtual environment, and run:
 
 ```bash
 uvicorn app.main:app --reload
 ```
 
-Run a worker in another terminal:
+The API will be available at:
+
+* API: `http://localhost:8000`
+* Interactive API documentation: `http://localhost:8000/docs`
+* Dashboard: `http://localhost:8000/dashboard`
+
+### 7. Start a Worker
+
+Open another terminal, activate the virtual environment, and run:
 
 ```bash
 python -m app.worker
 ```
 
-## Docker Setup
+The worker will begin checking the configured queues for jobs to process.
 
-Run the full stack:
+## Docker Deployment
+
+To start the application using Docker Compose:
 
 ```bash
 docker compose up --build
 ```
 
-Services:
+The Compose configuration is intended to run the API, Redis, and worker components together.
 
-- API: `http://localhost:8000`
-- Dashboard: `http://localhost:8000/dashboard`
-- Redis: `localhost:6379`
-- Worker: separate Compose service running `python -m app.worker`
+Use the following local endpoints:
 
-## API Examples
+| Component                     | Address                           |
+| ----------------------------- | --------------------------------- |
+| API                           | `http://localhost:8000`           |
+| Interactive API Documentation | `http://localhost:8000/docs`      |
+| Monitoring Dashboard          | `http://localhost:8000/dashboard` |
+| Redis                         | `localhost:6379`                  |
 
-Submit a job:
+## API Usage
+
+### Submit a Job
 
 ```bash
 curl -X POST http://localhost:8000/jobs \
@@ -160,81 +239,106 @@ curl -X POST http://localhost:8000/jobs \
   }'
 ```
 
-Submit a delayed job:
+This request submits a high-priority job to the queue.
+
+### Schedule a Delayed Job
 
 ```bash
 curl -X POST http://localhost:8000/jobs \
   -H "Content-Type: application/json" \
   -d '{
     "task_name": "generate_report",
-    "payload": {"report_id": "rpt_123"},
+    "payload": {
+      "report_id": "rpt_123"
+    },
     "priority": "medium",
     "delay_seconds": 30,
     "max_retries": 2
   }'
 ```
 
-Get job status:
+This example schedules a job with a 30-second delay.
+
+### Retrieve Job Status
+
+Replace `<job_id>` with the ID returned when the job was submitted.
 
 ```bash
 curl http://localhost:8000/jobs/<job_id>
 ```
 
-List recent jobs:
+### List Recent Jobs
 
 ```bash
 curl http://localhost:8000/jobs
 ```
 
-Queue statistics:
+### View Queue Statistics
 
 ```bash
 curl http://localhost:8000/queues/stats
 ```
 
-Health check:
+### Check Application Health
 
 ```bash
 curl http://localhost:8000/health
 ```
 
-## Worker Behavior
+## Worker Execution and Failure Handling
 
-Workers poll Redis queues in strict priority order:
+I implemented a simulated task executor to make job execution and failure scenarios reproducible during development and testing.
 
-1. `high`
-2. `medium`
-3. `low`
+The included executor supports these test scenarios:
 
-Before execution, a job is marked `running` and its attempt count is incremented. The included `SimulatedTaskExecutor` is intentionally deterministic and testable:
+* **Successful execution:** Normal jobs complete successfully.
+* **Permanent failure:** Jobs named `always_fail` fail during execution.
+* **Payload-triggered failure:** Jobs with `{"fail": true}` simulate a task failure.
+* **Recoverable failure:** Jobs with `{"fail_until_attempt": 1}` fail once and succeed on a subsequent attempt.
 
-- Normal jobs succeed.
-- Jobs with `task_name: "always_fail"` fail.
-- Jobs with payload `{"fail": true}` fail.
-- Jobs with payload `{"fail_until_attempt": 1}` fail once, then succeed.
+These scenarios allow the retry mechanism and dead-letter handling to be tested without depending on external services.
 
-This makes retry, backoff, and dead-letter behavior easy to validate without external services.
+### Retry Strategy
 
-## Retries and Dead-Letter Queue
-
-When a job fails and attempts remain, it is marked `retrying` and placed into the delayed sorted set using exponential backoff:
+When a job fails and retry attempts remain, the worker schedules another attempt using exponential backoff:
 
 ```text
-delay = RETRY_BACKOFF_BASE_SECONDS * 2^(attempts - 1)
+delay = RETRY_BACKOFF_BASE_SECONDS × 2^(attempts - 1)
 ```
 
-When retries are exhausted, the job is marked `dead` and its ID is pushed into the Redis dead-letter list. The final error message is retained in the job metadata.
+For example, with a base delay of two seconds, successive retry delays are two, four, and eight seconds.
 
-## WebSocket and Dashboard
+When the configured retry limit is exhausted, the job is marked `dead` and its ID is added to the dead-letter queue.
 
-Live updates are published to Redis Pub/Sub and retained in a short Redis event list.
+## Real-Time Monitoring
 
-- WebSocket endpoint: `ws://localhost:8000/ws/jobs`
-- Dashboard: `http://localhost:8000/dashboard`
+I integrated WebSockets and Redis Pub/Sub to support live job monitoring.
 
-The dashboard shows total jobs, queued jobs, running jobs, succeeded jobs, failed/retrying jobs, dead-letter jobs, and recent job events.
+The dashboard displays:
 
-## Testing
+* Total jobs submitted.
+* Jobs waiting in queues.
+* Jobs currently running.
+* Successfully completed jobs.
+* Failed and retrying jobs.
+* Jobs in the dead-letter queue.
+* Recent job events.
+
+**WebSocket endpoint:**
+
+```text
+ws://localhost:8000/ws/jobs
+```
+
+**Dashboard:**
+
+```text
+http://localhost:8000/dashboard
+```
+
+## Testing and Code Quality
+
+I included automated tests to validate important application behaviors.
 
 Run the test suite:
 
@@ -242,19 +346,23 @@ Run the test suite:
 pytest
 ```
 
-Run linting:
+Run the linter:
 
 ```bash
 ruff check .
 ```
 
-The tests use `fakeredis`, so they do not require a running Redis instance.
+The tests use Fakeredis to simulate Redis interactions, allowing the test suite to run without a separate Redis server, provided all tested operations are supported by the configured Fakeredis version.
+
+GitHub Actions is configured to automate linting and testing during the CI workflow.
 
 ## Configuration
 
-Configuration is environment-driven. See `.env.example`:
+The application uses environment variables for configuration.
 
-```bash
+Example `.env` settings:
+
+```env
 REDIS_URL=redis://localhost:6379/0
 WORKER_CONCURRENCY=4
 WORKER_POLL_INTERVAL_SECONDS=0.5
@@ -264,17 +372,47 @@ EVENT_STREAM_LIMIT=200
 LOG_LEVEL=INFO
 ```
 
-## Future Improvements
+Adjust these values based on the local environment and expected workload.
 
-- Add task registration with typed task handlers.
-- Add worker heartbeats and worker registry.
-- Add scheduled recurring jobs.
-- Add Redis Streams support for stronger delivery semantics.
-- Add OpenTelemetry tracing and Prometheus metrics.
-- Add authentication and tenant-aware job isolation.
-- Add a richer dashboard with filtering and replay controls.
+## Engineering Challenges and Design Decisions
 
-## Portfolio Note
+While developing this project, I focused on several backend engineering concerns:
 
-This is a portfolio backend infrastructure project. It focuses on clear architecture, operational behavior, testability, and interview-ready code rather than artificial scale or unnecessary framework complexity.
+* Separating API responsibilities from background worker execution.
+* Representing job states consistently throughout the processing lifecycle.
+* Scheduling jobs by priority and execution delay.
+* Handling transient and permanent failures differently.
+* Making failure scenarios reproducible for automated tests.
+* Publishing job events for real-time monitoring.
+* Keeping application configuration separate from source code.
+* Automating code-quality checks and tests through CI.
 
+These design choices make the project useful for exploring backend infrastructure, asynchronous execution, and fault-handling strategies.
+
+## Potential Improvements
+
+Future enhancements I would like to explore include:
+
+* Registering typed task handlers instead of relying exclusively on simulated execution.
+* Adding worker heartbeats and worker health monitoring.
+* Supporting recurring scheduled jobs.
+* Using Redis Streams or another durable delivery mechanism.
+* Improving atomic job claiming and recovery from worker crashes.
+* Adding Prometheus metrics and OpenTelemetry tracing.
+* Introducing authentication and tenant-level job isolation.
+* Adding dashboard filtering, job replay, and performance metrics.
+* Benchmarking throughput and latency under different workloads.
+
+## What I Learned
+
+Developing this project helped me explore practical backend infrastructure concepts, including queue design, worker processes, asynchronous APIs, retry strategies, Redis data structures, automated testing, containerization, and CI workflows.
+
+I built it as a hands-on engineering project to strengthen my understanding of how background processing systems are structured and how their behavior can be tested and monitored.
+
+## Author
+
+**Heshma Sree Avuthu**
+
+GitHub: [@heshmasree2809](https://github.com/heshmasree2809)
+
+Project: [Distributed Task Queue](https://github.com/heshmasree2809/Distributed-Task-Queue)
