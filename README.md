@@ -12,7 +12,7 @@ I built this project to demonstrate how a Redis-backed task queue can coordinate
 
 ## Architecture
 
-```text
+````text
                     Client
                        |
                  REST API / WebSocket
@@ -44,7 +44,7 @@ I built this project to demonstrate how a Redis-backed task queue can coordinate
                        |
                        v
                 WebSocket Dashboard
-```
+````
 
 The FastAPI application accepts job submissions and stores job information in Redis. Independent worker processes retrieve jobs according to their priority, execute tasks, update job states, and handle failures. WebSocket connections provide live updates to the monitoring dashboard.
 
