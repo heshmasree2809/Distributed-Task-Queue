@@ -81,7 +81,7 @@ The FastAPI application accepts job submissions and stores job information in Re
 
 ## Project Structure
 
-```text
+````text
 distributed-task-queue/
 ├── app/
 │   ├── __init__.py
@@ -110,7 +110,7 @@ distributed-task-queue/
 ├── README.md
 ├── .env.example
 └── .gitignore
-```
+````
 
 ## Getting Started
 
